@@ -6,11 +6,10 @@
 
   <groupId>de.tinyWebServ</groupId>
   <artifactId>tinyWebServ</artifactId>
-  <version>0.1</version>
+  <version>0.1.0</version>
   <packaging>jar</packaging>
 
   <name>Tiny Web Server</name>
-  <url>https://example.com</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -33,11 +32,16 @@
 			<scope>test</scope>
 		</dependency>
       -->
+        <dependency>
+            <groupId>info.picocli</groupId>
+			<artifactId>picocli</artifactId>
+			<version>4.2.0</version>
+        </dependency>
   </dependencies>
 
   <build>
       <plugins>
-      <!-- Builds a executable jar with all dependencies inside -> Maven Magic -->
+      <!-- Builds a executable jar with all dependencies inside -->
           <plugin>
             <artifactId>maven-assembly-plugin</artifactId>
             <executions>

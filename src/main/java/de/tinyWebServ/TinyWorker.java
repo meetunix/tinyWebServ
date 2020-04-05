@@ -37,17 +37,17 @@ public class TinyWorker implements Runnable {
 	*/
 	private BlockingQueue<String> accLogQueue;
 	private BlockingQueue<String> errLogQueue;
-	private BlockingQueue<CookieJob> cookieJobQueue;
 	private String host = "-";
 	private String ident = "-";
 	private String authuser = "-";
 	private String requestHeader;
 	// example dateString: [10/Oct/2000:13:55:36 -0700]
 	private String dateString = "-";
-	private SimpleDateFormat date = new SimpleDateFormat("[dd/LLL/YYYY:kk:mm:ss Z]",new Locale("en"));
+	private SimpleDateFormat date = new SimpleDateFormat(
+			"[dd/LLL/YYYY:kk:mm:ss Z]",new Locale("en")
+			);
 	private String userAgent = "-";
 	private String clientID = HTTPConst.COOKIE_UNKNOWN;
-	private CookieJob cookieJob = null;
 	private SessionManager sessionManager;
 	
 	public long threadID;
@@ -55,14 +55,12 @@ public class TinyWorker implements Runnable {
 	public TinyWorker(Socket client,
 			BlockingQueue<String> accLogQueue,
 			BlockingQueue<String> errLogQueue,
-			BlockingQueue<CookieJob> cookieJobQueue,
 			SessionManager sManager,
 			long threadID) {
 		
 		this.socket = client;
 		this.accLogQueue = accLogQueue;
 		this.errLogQueue = errLogQueue;
-		this.cookieJobQueue = cookieJobQueue;
 		this.sessionManager = sManager;
 		this.threadID = threadID;
 		
@@ -81,11 +79,6 @@ public class TinyWorker implements Runnable {
 			inReader.close();
 			outStream.close();
 			socket.close();
-			if (cookieJob != null) {
-				cookieJobQueue.add(cookieJob);
-			}else {
-				System.out.println("Worker: " + threadID + " no cookieJob created -> but why?");
-			}
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -125,7 +118,8 @@ public class TinyWorker implements Runnable {
 		}
 	}
 	
-	private void sendResponse(String statusRequest, String statusResponse, Path currPath) throws IOException {
+	private void sendResponse(String statusRequest, String statusResponse, Path currPath)
+			throws IOException {
 
 		byte[] bytesStatusLine = statusResponse.getBytes("ASCII");
 		byte[] bytesNewLine = HTTPConst.HTTP_NEWLINE.getBytes("ASCII");
@@ -156,12 +150,13 @@ public class TinyWorker implements Runnable {
 											+ bytesContent.length
 											+ HTTPConst.HTTP_NEWLINE)).getBytes("ASCII");
 
-		//create response and send it
+		// create response and send it
 		outStream.write(bytesStatusLine);
 		outStream.write(bytesServerOption);
 		outStream.write(bytesContentType);
 		outStream.write(bytesContentLength); //HEAD OR not HEAD, that is the question
-		//if (! statusRequest.equals(HTTPConst.REQUEST_METHOD_HEAD)) {outStream.write(bytesContentLength);}
+		// if (! statusRequest.equals(HTTPConst.REQUEST_METHOD_HEAD)) 
+		// {outStream.write(bytesContentLength);}
 		// 
 		if (! sessionManager.isCookieAlreadySetAndSet(clientID)) {
 			byte[] bytesCookie = (new String (	HTTPConst.HEADER_SET_COOKIE
@@ -191,13 +186,19 @@ public class TinyWorker implements Runnable {
 			return status;
 		}
 
-		if (headerBodyFields.get("connection").matches(".*[cC][lL][oO][sS][eE].*")) { status = true;}
+		if (headerBodyFields.get("connection").matches(".*[cC][lL][oO][sS][eE].*")) {
+			status = true;
+			}
 
 		return status;
 	}
 	
 	// log structure: host ident authuser date request status bytes user-agent
-	private void logToAccess(String dateString, String requestHeader, String returnCode, String returnLength) {
+	private void logToAccess(
+			String dateString,
+			String requestHeader,
+			String returnCode,
+			String returnLength) {
 
 		String logString = new String(host + " " +  ident + " " + authuser + " " + dateString + " "
 				+ requestHeader + " " + returnCode + " " + returnLength + " " + userAgent);
@@ -264,7 +265,8 @@ public class TinyWorker implements Runnable {
 					//retrieving connection state from request
 					isClosed = getConnectionStatus(headerBodyFields);
 					
-					//setting ressource path to root directory and adding default ressource: index.html
+					//setting ressource path to root directory and adding default ressource:
+					// index.html
 					if(requestRessourcePath.equals("/")) {
 						requestRessourcePath = HTTPConst.DOCUMENT_PATH + "index.html";
 					}else {
@@ -274,16 +276,11 @@ public class TinyWorker implements Runnable {
 					//cookie handling: creating cookieJob
 					clientID = getClientID(headerBodyFields);
 					//System.out.println("WORKER: clientID: " + clientID);
-					if(clientID.equals(HTTPConst.COOKIE_UNKNOWN) && cookieJob == null) {
+					if(clientID.equals(HTTPConst.COOKIE_UNKNOWN) ) {
 						// client not known -> generate new ID and write to sessionManager
 						clientID = UUID.randomUUID().toString().replaceAll("-", "");
 						sessionManager.addClientID(clientID);
-						cookieJob = new CookieJob(clientID);
-					}else if (cookieJob == null) {
-							cookieJob = new CookieJob(clientID);
 					}
-					cookieJob.appendRessourceRecord(
-							date.format(new Date())+  " " + requestHeaderFields[1]);
 					
 					//handling request-types
 					if (requestMethod.equals(HTTPConst.REQUEST_METHOD_GET)) {	//GET

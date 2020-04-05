@@ -6,7 +6,7 @@ package de.tinyWebServ;
  */
 public class Server 
 {
-	private static int port = 8888;
+	private static int port = 8080;
 	
     public static void main( String[] args )
     {
@@ -16,7 +16,7 @@ public class Server
     			port = portCandid;
     		}
     		else {
-    			System.out.println("You want to start the Server on a well-know port"
+    			System.out.println("You want to start the server on a well-know port"
     					+ " make sure you have sufficient rights.");
     			port = portCandid;
     		}

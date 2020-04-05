@@ -17,14 +17,11 @@ public class TinyWebServ implements Runnable {
 	private Thread					runningThread;
 	private Thread					accLogger;
 	private Thread					errLogger;
-	private Thread 					cookieManager;
 	private ExecutorService 		threadPool = Executors.newFixedThreadPool(100);
 
 	protected BlockingQueue<String> accLogQueue = new ArrayBlockingQueue<>(1000);
 	protected BlockingQueue<String> errLogQueue = new ArrayBlockingQueue<>(1000);
 
-	protected BlockingQueue<CookieJob> cookieJobQueue = new ArrayBlockingQueue<>(10);
-	
 	public TinyWebServ(int port) {
 		this.port = port;
 	}
@@ -83,9 +80,6 @@ public class TinyWebServ implements Runnable {
 		accLogger.start();
 		errLogger.start();
 
-		cookieManager = new Thread( new CookieManager(cookieJobQueue, "surveillance/"));
-		cookieManager.start();
-
 		synchronized (this) {
 			this.runningThread = Thread.currentThread();
 		}
@@ -109,14 +103,14 @@ public class TinyWebServ implements Runnable {
 				i += 1;
 
 			} catch (IOException e) {
-				errLogger("ERROR: Unable to open client port");
+				errLogger("ERROR: unable to open client port");
 				e.printStackTrace();
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 			
 			SessionManager sManager = new SessionManager();
-			threadPool.execute( new TinyWorker(client, accLogQueue, errLogQueue, cookieJobQueue, sManager, i) );
+			threadPool.execute( new TinyWorker(client, accLogQueue, errLogQueue, sManager, i) );
 			//if (i == 4) { runningThread.interrupt();}
 		}
 		cleanup();

@@ -37,7 +37,13 @@ public class TinyLogger implements Runnable {
 			nioPath = Paths.get(path);
 
 			if(! Files.exists(nioPath)) {Files.createFile(nioPath);}
-			outWriter = Files.newBufferedWriter(nioPath, StandardCharsets.UTF_8,StandardOpenOption.APPEND);
+			
+			outWriter = Files.newBufferedWriter(
+					nioPath,
+					StandardCharsets.UTF_8,
+					StandardOpenOption.APPEND
+					);
+			
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
