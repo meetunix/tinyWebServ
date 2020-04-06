@@ -1,3 +1,20 @@
+/*
+ * Copyright (C) 2020 Martin Steinbach
+ * 
+ * This program is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ * 
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+ * details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package de.tinyWebServ;
 
 import java.io.BufferedOutputStream;
@@ -24,6 +41,7 @@ public class TinyWorker implements Runnable {
 	private BufferedReader inReader;
 	private BufferedOutputStream outStream;
 	private String serverName;
+	private String directory;
 
 	// variables needed for connection handling
 	private final long TIMEOUT = 10000; // 10 seconds
@@ -56,13 +74,16 @@ public class TinyWorker implements Runnable {
 			BlockingQueue<String> accLogQueue,
 			BlockingQueue<String> errLogQueue,
 			SessionManager sManager,
-			long threadID) {
+			long threadID,
+			String directory) {
+		
 		
 		this.socket = client;
 		this.accLogQueue = accLogQueue;
 		this.errLogQueue = errLogQueue;
 		this.sessionManager = sManager;
 		this.threadID = threadID;
+		this.directory = directory;
 		
 		try {
 			this.serverName = InetAddress.getLocalHost().getHostName();
@@ -110,6 +131,8 @@ public class TinyWorker implements Runnable {
 			if (filename.toLowerCase().matches(".*bmp$")) {mimeType = "image/bmp";}
 			if (filename.toLowerCase().matches(".*txt$")) {mimeType = "text/plain";}
 			if (filename.toLowerCase().matches(".*pdf$")) {mimeType = "application/pdf";}
+			if (filename.toLowerCase().matches(".*css$")) {mimeType = "text/css";}
+			if (filename.toLowerCase().matches(".*js$")) {mimeType = "text/javascript";}
 
 			return mimeType;
 
@@ -265,12 +288,20 @@ public class TinyWorker implements Runnable {
 					//retrieving connection state from request
 					isClosed = getConnectionStatus(headerBodyFields);
 					
-					//setting ressource path to root directory and adding default ressource:
-					// index.html
+					/*
+					 * setting ressource path to root directory and adding default ressource:
+					 * index.html
+					 */
+					
+					// if no docroot is given using the default one
+					if (directory == null) {
+						directory =  HTTPConst.DOCUMENT_DEFAULT_PATH;
+					}
+				
 					if(requestRessourcePath.equals("/")) {
-						requestRessourcePath = HTTPConst.DOCUMENT_PATH + "index.html";
+						requestRessourcePath = directory + "index.html";
 					}else {
-						requestRessourcePath = HTTPConst.DOCUMENT_PATH + requestRessourcePath;
+						requestRessourcePath = directory + requestRessourcePath;
 					}
 
 					//cookie handling: creating cookieJob
