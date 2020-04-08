@@ -32,12 +32,12 @@ public class TinyWebServ implements Runnable {
 	
 	private Integer 				port;
 	private Integer 				workers;
-	private String					directory; //docroot
 	private ServerSocket			serverSocket;
 	private Thread					runningThread;
 	private Thread					accLogger;
 	private Thread					errLogger;
 	private ExecutorService 		threadPool;
+	private Map<String,Object>		config;
 
 	protected BlockingQueue<String> accLogQueue = new ArrayBlockingQueue<>(1000);
 	protected BlockingQueue<String> errLogQueue = new ArrayBlockingQueue<>(1000);
@@ -46,7 +46,7 @@ public class TinyWebServ implements Runnable {
 	public TinyWebServ(Map<String,Object> config) {
 		this.port = 		(Integer)config.get("port");
 		this.workers = 		(Integer)config.get("workers");
-		this.directory =	(String)config.get("directory");
+		this.config = config;
 		
 		// set maximum number of threads
 		threadPool = Executors.newFixedThreadPool(workers);
@@ -76,15 +76,6 @@ public class TinyWebServ implements Runnable {
 			e.printStackTrace();
 		}
 		//TODO: check if all Threads are properly closed before I close myself
-		/*
-		runningWorkers.add(accLogger);
-		runningWorkers.add(errLogger);
-
-		boolean allThreadsClosed = true;
-		for(Runnable r: runningWorkers) {
-			((Thread)r).isAlive();
-		}
-		 */
 
 		System.out.println("Server has been stopped.");
 	}
@@ -116,33 +107,30 @@ public class TinyWebServ implements Runnable {
 					+ " the process may need more privileges");
 			System.exit(1);
 		}
-		
+
+		SessionManager sessionManager = new SessionManager();
+
 		long i = 0;
 		while(! runningThread.isInterrupted() ) {
 			Socket client = null;
 			
 			try {
 
-				Thread.sleep(10);
 				client = serverSocket.accept();
 				i += 1;
 
 			} catch (IOException e) {
 				errLogger("ERROR: unable to open client port");
 				e.printStackTrace();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
 			}
 			
-			SessionManager sManager = new SessionManager();
 			threadPool.execute( new TinyWorker(
 					client,
 					accLogQueue,
 					errLogQueue,
-					sManager,
+					sessionManager,
 					i,
-					directory) );
-			//if (i == 4) { runningThread.interrupt();}
+					config) );
 		}
 		cleanup();
 	}

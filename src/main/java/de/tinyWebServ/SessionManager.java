@@ -23,9 +23,28 @@ import java.util.Map;
 public class SessionManager {
 	
 	Map<String,Boolean> sessions = new HashMap<>();
-	
+
+	/**
+	 *  set the sessionID so that a cookie may be send later.
+	 *   
+	 * @param clientID
+	 */
 	public synchronized void addClientID(String clientID) {
+		System.out.println("SM - added client id : " + clientID);
 		sessions.put(clientID, false);
+	}
+	/**
+	 * Saves a sessionID in a manner, that no cookie is sent later.
+	 * 
+	 * If a client has already sent a sessionID to the server (via cookie), the sessionID
+	 * has to be stored, so that no other worker thread sending this sessionID via cookie. 
+	 * 
+	 * @param sessionID
+	 */
+	public synchronized void addSessionIDIfNotAlreadySet(String sessionID) {
+		if (sessions.get(sessionID) == null){
+			sessions.put(sessionID, true);
+		}
 	}
 	
 	public synchronized boolean isCookieAlreadySetAndSet (String clientID) {

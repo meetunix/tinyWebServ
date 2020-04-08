@@ -37,53 +37,61 @@ import java.util.concurrent.BlockingQueue;
 
 public class TinyWorker implements Runnable {
 
-	private Socket socket;
-	private BufferedReader inReader;
-	private BufferedOutputStream outStream;
-	private String serverName;
-	private String directory;
+	private Socket 						socket;
+	private BufferedReader 				inReader;
+	private BufferedOutputStream 		outStream;
+	private String 						serverName;
+	
+	// variables used for configuration
+	private String 						directory;
+	private boolean 					verbose;
+	private boolean 					sessionCookie;
 
 	// variables needed for connection handling
-	private final long TIMEOUT = 10000; // 10 seconds
-	private long startTime;
-	private long endTime;
-	private boolean isClosed = false;
+	private final long 					TIMEOUT = 5000; // 5 seconds
+	private long 						startTime;
+	private long 						endTime;
+	private boolean 					isClosed = false;
 	
 	/* variables needed for logging
 	* host ident authuser date request status bytes user-agent
 	* https://en.wikipedia.org/wiki/Common_Log_Format
 	*/
-	private BlockingQueue<String> accLogQueue;
-	private BlockingQueue<String> errLogQueue;
-	private String host = "-";
-	private String ident = "-";
-	private String authuser = "-";
-	private String requestHeader;
+	private BlockingQueue<String> 		accLogQueue;
+	private BlockingQueue<String> 		errLogQueue;
+	private String 						host = "-";
+	private String 						ident = "-";
+	private String 						authuser = "-";
+	private String 						requestHeader;
 	// example dateString: [10/Oct/2000:13:55:36 -0700]
-	private String dateString = "-";
-	private SimpleDateFormat date = new SimpleDateFormat(
-			"[dd/LLL/YYYY:kk:mm:ss Z]",new Locale("en")
-			);
-	private String userAgent = "-";
-	private String clientID = HTTPConst.COOKIE_UNKNOWN;
-	private SessionManager sessionManager;
+	private String 						dateString = "-";
+	private SimpleDateFormat 			date = new SimpleDateFormat(
+										"[dd/LLL/YYYY:kk:mm:ss Z]",new Locale("en")
+										);
+	private String 						userAgent = "-";
+	private String 						sessionID = HTTPConst.COOKIE_UNKNOWN;
+	private SessionManager 				sessionManager;
 	
-	public long threadID;
+	public long 						threadID;
 
-	public TinyWorker(Socket client,
-			BlockingQueue<String> accLogQueue,
-			BlockingQueue<String> errLogQueue,
-			SessionManager sManager,
-			long threadID,
-			String directory) {
+	public TinyWorker(
+			Socket 					client,
+			BlockingQueue<String> 	accLogQueue,
+			BlockingQueue<String> 	errLogQueue,
+			SessionManager 			sManager,
+			long 					threadID,
+			Map<String,Object> 		config) {
 		
+		this.socket 			= client;
+		this.accLogQueue 		= accLogQueue;
+		this.errLogQueue 		= errLogQueue;
+		this.sessionManager 	= sManager;
+		this.threadID 			= threadID;
 		
-		this.socket = client;
-		this.accLogQueue = accLogQueue;
-		this.errLogQueue = errLogQueue;
-		this.sessionManager = sManager;
-		this.threadID = threadID;
-		this.directory = directory;
+		// set configuration variables
+		this.directory 			= (String)config.get("directory");
+		this.verbose 			= (boolean)config.get("verbose");
+		this.sessionCookie 		= (boolean)config.get("sessionCookie");
 		
 		try {
 			this.serverName = InetAddress.getLocalHost().getHostName();
@@ -95,7 +103,7 @@ public class TinyWorker implements Runnable {
 	private void cleanup() {
 		
 		try {
-			System.out.println("Worker: " + threadID + " cleanup ...");
+			System.out.println("Worker " + threadID + " : cleanup ...");
 
 			inReader.close();
 			outStream.close();
@@ -108,13 +116,16 @@ public class TinyWorker implements Runnable {
 	
 	private void setupConnection() throws IOException{
 		
-			System.out.println("The Client " + socket.getInetAddress()+ ":" + socket.getPort()
-			+ " is connected");
-			inReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			outStream = new BufferedOutputStream(socket.getOutputStream());
+		if (verbose) {
+		System.out.println("WORKER " + threadID + " : The Client " + socket.getInetAddress()+
+				":" + socket.getPort() + " is connected");
+		}
 
-			//following log-variable is stable as long as the worker exists
-			host = new String(socket.getInetAddress() + ":[" + socket.getPort() + "]");
+		inReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+		outStream = new BufferedOutputStream(socket.getOutputStream());
+
+		//following log-variable is stable as long as the worker exists
+		host = new String(socket.getInetAddress() + ":[" + socket.getPort() + "]");
 	}
 	
 	private String getContentType(Path currPath) {
@@ -177,23 +188,30 @@ public class TinyWorker implements Runnable {
 		outStream.write(bytesStatusLine);
 		outStream.write(bytesServerOption);
 		outStream.write(bytesContentType);
-		outStream.write(bytesContentLength); //HEAD OR not HEAD, that is the question
-		// if (! statusRequest.equals(HTTPConst.REQUEST_METHOD_HEAD)) 
-		// {outStream.write(bytesContentLength);}
-		// 
-		if (! sessionManager.isCookieAlreadySetAndSet(clientID)) {
-			byte[] bytesCookie = (new String (	HTTPConst.HEADER_SET_COOKIE
-												+ "clientid="
-												+ clientID
-												+ HTTPConst.HTTP_NEWLINE)).getBytes();
-			outStream.write(bytesCookie);
+		outStream.write(bytesContentLength); 
+
+		
+		if (sessionCookie) {
+			
+			if (! sessionManager.isCookieAlreadySetAndSet(sessionID)) {
+				byte[] bytesCookie = (new String (	HTTPConst.HEADER_SET_COOKIE
+													+ "clientid="
+													+ sessionID
+													+ HTTPConst.HTTP_NEWLINE)).getBytes();
+				outStream.write(bytesCookie);
+			}
+
 		}
 		outStream.write(bytesNewLine); //closes header
+
 		// a response to HEAD does not include the requested file
-		if (! statusRequest.equals(HTTPConst.REQUEST_METHOD_HEAD)) {outStream.write(bytesContent);}
+		if (! statusRequest.equals(HTTPConst.REQUEST_METHOD_HEAD)) {
+			outStream.write(bytesContent);
+			}
+		
 		outStream.flush();
 
-		//write to acces-log:
+		//write to access-log:
 		dateString = date.format(new Date());
 		logToAccess(	dateString,
 						requestHeader,
@@ -233,7 +251,7 @@ public class TinyWorker implements Runnable {
 		}
 	}
 
-	private String getClientID(Map<String, String> headerBodyFields) {
+	private String getSessionID(Map<String, String> headerBodyFields) {
 		
 		if (headerBodyFields.isEmpty() || headerBodyFields.get("cookie") == null){
 			return HTTPConst.COOKIE_UNKNOWN;
@@ -303,14 +321,25 @@ public class TinyWorker implements Runnable {
 					}else {
 						requestRessourcePath = directory + requestRessourcePath;
 					}
+					
+					if (sessionCookie) {
+						
+						sessionID = getSessionID(headerBodyFields);
 
-					//cookie handling: creating cookieJob
-					clientID = getClientID(headerBodyFields);
-					//System.out.println("WORKER: clientID: " + clientID);
-					if(clientID.equals(HTTPConst.COOKIE_UNKNOWN) ) {
-						// client not known -> generate new ID and write to sessionManager
-						clientID = UUID.randomUUID().toString().replaceAll("-", "");
-						sessionManager.addClientID(clientID);
+						if (verbose) {
+							System.out.println("WORKER " + threadID + " : sessionID: " + sessionID);
+						}
+						
+						if(sessionID.equals(HTTPConst.COOKIE_UNKNOWN) ) {
+							// client not known -> generate new sessionID
+							sessionID = UUID.randomUUID().toString().replaceAll("-", "");
+							sessionManager.addClientID(sessionID);
+						}else {
+							// session id is supplied by cookie in request and needs to be written to
+							// the session manager
+							sessionManager.addSessionIDIfNotAlreadySet(sessionID);
+						}
+
 					}
 					
 					//handling request-types
@@ -343,7 +372,6 @@ public class TinyWorker implements Runnable {
 					}
 				}
 				Thread.sleep(10);
-				//accLogQueue.put("Log: Thread ");
 				
 				//check timeout and Connection status and interrupt thread
 				endTime = System.currentTimeMillis();

@@ -15,7 +15,7 @@ Per default tinyWebServ listen to port 8080 for incomming connections.
     
     mvn package
     
-    cp target/tinyWebServ-0.1.0-jar-with-dependencies.jar ../tinyWebServ.jar
+    cp target/tinyWebServ-0.1.1-jar-with-dependencies.jar ../tinyWebServ.jar
 
 
 ## features
@@ -23,15 +23,17 @@ Per default tinyWebServ listen to port 8080 for incomming connections.
 - multithreaded
 - keep-alive
 - access and error logging
-- session-cookie
 - HTTP-Methods: GET,HEAD
 
+## experimental
+
+- session-cookies
 
 ## planned features
 
 - HTTP-Methods: POST,PUT
 - better mime-type handling
-
+- TLS
 
 ## command line options
 

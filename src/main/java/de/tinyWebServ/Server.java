@@ -40,9 +40,13 @@ public class Server implements Callable<Integer>
 		config.put("port", port);
 		config.put("workers", workers);
 		config.put("directory", directory);
+		config.put("sessionCookie", sessionCookie);
+		config.put("verbose", verbose);
 		
     	Thread tinyWebServ = new Thread( new TinyWebServ(config));
     	tinyWebServ.run();
+
+    	tinyWebServ.join();
 
 		return 0;
 	}
@@ -71,13 +75,18 @@ public class Server implements Callable<Integer>
 	@Option(names = {"-w", "--workers"}, description = "Number of maximum threads (Default: 100).")
 	private Integer workers = 100;
 	
+	//TODO
+	@Option(	names = { "-s", "--sessionCookie"}, 
+				description = "If set, a session cookie is set (EXPERIMENTAL)")
+	private boolean sessionCookie = false;
+	
+	//TODO
+	@Option(names = { "-v", "--verbose"}, description = "Be more verbose")
+	private boolean verbose = false;
+
     public static void main( String[] args )
     {
-    	
     	int exitCode = new CommandLine(new Server()).execute(args);
     	System.exit(exitCode);
-    	
-    	//waiting that all Threads are done (TODO: using Features for that)
     }
-
 }
