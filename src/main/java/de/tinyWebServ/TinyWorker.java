@@ -74,6 +74,18 @@ public class TinyWorker implements Runnable {
 	
 	public long 						threadID;
 
+	/**
+	 * 
+	 * Constructor
+	 * 
+	 * @param client		
+	 * @param accLogQueue	
+	 * @param errLogQueue
+	 * @param sManager		
+	 * @param threadID
+	 * @param config
+	 */
+	
 	public TinyWorker(
 			Socket 					client,
 			BlockingQueue<String> 	accLogQueue,
@@ -100,6 +112,10 @@ public class TinyWorker implements Runnable {
 		}
 	}
 	
+	/**
+	 * Closes the stream reader and writer before the thread is closed.
+	 * 
+	 */
 	private void cleanup() {
 		
 		try {
@@ -114,6 +130,13 @@ public class TinyWorker implements Runnable {
 		}
 	}
 	
+	/**
+	 * Using the given socket to create strem reader and writer.
+	 * 
+	 * 
+	 * @throws IOException
+	 */
+	
 	private void setupConnection() throws IOException{
 		
 		if (verbose) {
@@ -127,6 +150,14 @@ public class TinyWorker implements Runnable {
 		//following log-variable is stable as long as the worker exists
 		host = new String(socket.getInetAddress() + ":[" + socket.getPort() + "]");
 	}
+
+	/**
+	 * 
+	 * Determines the mime-type based on the file extension of the requested file.
+	 * 
+	 * @param currPath
+	 * @return mime type as string
+	 */
 	
 	private String getContentType(Path currPath) {
 		//default mime type is binary data
@@ -151,6 +182,16 @@ public class TinyWorker implements Runnable {
 			return null;
 		}
 	}
+	
+	/**
+	 * 
+	 * Builds and sends the response.
+	 * 
+	 * @param statusRequest
+	 * @param statusResponse
+	 * @param currPath
+	 * @throws IOException
+	 */
 	
 	private void sendResponse(String statusRequest, String statusResponse, Path currPath)
 			throws IOException {
@@ -191,17 +232,40 @@ public class TinyWorker implements Runnable {
 		outStream.write(bytesContentLength); 
 
 		
+		/*
+		 * Session management
+		 */
+		
 		if (sessionCookie) {
 			
-			if (! sessionManager.isCookieAlreadySetAndSet(sessionID)) {
-				byte[] bytesCookie = (new String (	HTTPConst.HEADER_SET_COOKIE
-													+ "clientid="
-													+ sessionID
-													+ HTTPConst.HTTP_NEWLINE)).getBytes();
-				outStream.write(bytesCookie);
-			}
+			synchronized (sessionManager) {
+				
+				if (verbose) {
+					System.out.println(
+							"WORKER " + threadID + " : sessionID: " + sessionID
+							);
+				}
+				
+				if(sessionID.equals(HTTPConst.COOKIE_UNKNOWN) ) {
+					// client not known -> generate new sessionID
+					sessionID = UUID.randomUUID().toString().replaceAll("-", "");
+					sessionManager.addClientID(sessionID);
+				}else {
+					// session id is supplied by cookie in request and needs
+					// to be written to the session manager
+					sessionManager.addSessionIDIfNotAlreadySet(sessionID);
+				}
 
+				if (! sessionManager.isCookieAlreadySetAndSet(sessionID)) {
+					byte[] bytesCookie = (new String (	HTTPConst.HEADER_SET_COOKIE
+														+ "clientid="
+														+ sessionID
+														+ HTTPConst.HTTP_NEWLINE)).getBytes();
+					outStream.write(bytesCookie);
+				}
+			}
 		}
+
 		outStream.write(bytesNewLine); //closes header
 
 		// a response to HEAD does not include the requested file
@@ -218,9 +282,19 @@ public class TinyWorker implements Runnable {
 						(statusResponse.split(" "))[1],
 						Integer.toString(bytesContent.length));
 	}
+
+	/**
+	 * Method seareches the header fields for the connection keyword and checks, whether the
+	 * cllients wants to close the TCP-Connection after request or let it open (keep-alive).
+	 * 
+	 * @param headerBodyFields
+	 * @return False if keep-alive is wanted by client, true if clients wants to close after Req.
+	 * @throws IOException
+	 */
 	
 	private boolean getConnectionStatus(Map<String,String> headerBodyFields) throws IOException {
-
+		
+		// default keep-alive is assumed
 		boolean status = false;
 		
 		if (headerBodyFields.isEmpty() || headerBodyFields.get("connection") == null){
@@ -233,7 +307,16 @@ public class TinyWorker implements Runnable {
 
 		return status;
 	}
-	
+
+	/**
+	 * 
+	 * Log to acess log.
+	 * 
+	 * @param dateString
+	 * @param requestHeader
+	 * @param returnCode
+	 * @param returnLength
+	 */
 	// log structure: host ident authuser date request status bytes user-agent
 	private void logToAccess(
 			String dateString,
@@ -250,6 +333,14 @@ public class TinyWorker implements Runnable {
 			errLogQueue.add("unable to log to access.log due to InterruptedException: " + e);
 		}
 	}
+	
+	/**
+	 * Method searches the fields of the http-header for the cookie field and inside that
+	 * for the 'clientd' key to obtain the value (sessionID).
+	 * 
+	 * @param headerBodyFields
+	 * @return sessionID
+	 */
 
 	private String getSessionID(Map<String, String> headerBodyFields) {
 		
@@ -276,34 +367,38 @@ public class TinyWorker implements Runnable {
 					// timeout from now on
 					startTime = System.currentTimeMillis();
 				
-					//read the first line of the header
+					// read the first line of the header
 					requestHeader = inReader.readLine();
+					
+					// check if first line is valid
 					if (requestHeader == null) {
 						cleanup();
 						return;
 						}
 
-					//parse the first line to get the http-request-method and validate
+					// parse the first line to get the http-request-method and validate
 					String requestHeaderFields[] = requestHeader.split(" ");
 					if (requestHeaderFields.length < 3) {
 						cleanup();
 						return;
 					}
-
+					
+					// store the method (e.g. GET, HEAD ...) and the requested path
 					String requestMethod = requestHeaderFields[0];
 					String requestRessourcePath = requestHeaderFields[1];
 					
-					//retrieving the other fields from the request header
+					// retrieving the other fields from the request header
 					Map<String,String> headerBodyFields = new HashMap<String, String>();					
 					while (inReader.ready()) {
 						String[] fields = inReader.readLine().split(": ");
 						if (fields.length == 2) {
-							//header-field-names are case insensitive;
+							// header-field-names are case insensitive;
 							headerBodyFields.put(fields[0].toLowerCase(), fields[1]);
 						}
 					}
+
 					userAgent = headerBodyFields.get("user-agent");
-					//retrieving connection state from request
+					// retrieving connection state from request
 					isClosed = getConnectionStatus(headerBodyFields);
 					
 					/*
@@ -321,25 +416,10 @@ public class TinyWorker implements Runnable {
 					}else {
 						requestRessourcePath = directory + requestRessourcePath;
 					}
-					
+				
+					// The sessionID is only necessary when sessionCookie is activated
 					if (sessionCookie) {
-						
 						sessionID = getSessionID(headerBodyFields);
-
-						if (verbose) {
-							System.out.println("WORKER " + threadID + " : sessionID: " + sessionID);
-						}
-						
-						if(sessionID.equals(HTTPConst.COOKIE_UNKNOWN) ) {
-							// client not known -> generate new sessionID
-							sessionID = UUID.randomUUID().toString().replaceAll("-", "");
-							sessionManager.addClientID(sessionID);
-						}else {
-							// session id is supplied by cookie in request and needs to be written to
-							// the session manager
-							sessionManager.addSessionIDIfNotAlreadySet(sessionID);
-						}
-
 					}
 					
 					//handling request-types

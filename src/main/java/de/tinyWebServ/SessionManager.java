@@ -29,7 +29,7 @@ public class SessionManager {
 	 *   
 	 * @param clientID
 	 */
-	public synchronized void addClientID(String clientID) {
+	public void addClientID(String clientID) {
 		System.out.println("SM - added client id : " + clientID);
 		sessions.put(clientID, false);
 	}
@@ -41,13 +41,13 @@ public class SessionManager {
 	 * 
 	 * @param sessionID
 	 */
-	public synchronized void addSessionIDIfNotAlreadySet(String sessionID) {
+	public void addSessionIDIfNotAlreadySet(String sessionID) {
 		if (sessions.get(sessionID) == null){
 			sessions.put(sessionID, true);
 		}
 	}
 	
-	public synchronized boolean isCookieAlreadySetAndSet (String clientID) {
+	public boolean isCookieAlreadySetAndSet (String clientID) {
 		if (sessions.get(clientID) == null) {
 			return true;
 		}else if (sessions.get(clientID)) {
