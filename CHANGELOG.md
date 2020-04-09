@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 This project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2020-04-XX
+
+### Fixed
+
+- simplified session management but still does not work on every website  
+
+
 ## [0.1.1] - 2020-04-08
 
 ### Added
